@@ -138,7 +138,7 @@ with tab1:
                 selected_addons_str = ""
                 
                 if addon_dict:
-                    picked_addons = st.multiselect("👇 想要加點什麼料？(可複選)", options=addon_dict.keys())
+                    picked_addons = st.multiselect("👇 想要加點什麼【配料】或【湯品】？(可複選)", options=addon_dict.keys())
                     for picked in picked_addons:
                         addon_total_price += addon_dict[picked]
                         clean_name = picked.split(" (")[0]
