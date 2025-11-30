@@ -5,74 +5,57 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (介面修復版)")
+st.title("🍱 點餐魔術師 (藍白科技版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (針對深色模式修復) 👇
+# 👇 CSS 視覺優化區 (深色模式修復) 👇
 st.markdown(
     """
     <style>
-    /* 1. 下拉選單 (未展開時的按鈕) - 維持亮藍底白字 */
+    /* 1. 下拉選單 (按鈕) */
     .stSelectbox div[data-baseweb="select"] > div {
-        background-color: #1976D2 !important; /* 亮藍色 */
+        background-color: #1976D2 !important;
         border: 2px solid #0D47A1 !important;
         border-radius: 10px;
         color: white !important;
     }
-    
-    /* 按鈕內的文字強制白色 */
     .stSelectbox div[data-baseweb="select"] span {
         color: white !important;
         font-weight: bold;
         font-size: 16px;
     }
+    .stSelectbox svg { fill: white !important; }
 
-    /* 下拉箭頭強制白色 */
-    .stSelectbox svg {
-        fill: white !important;
-    }
-
-    /* 2. 下拉選單 (展開後的列表) - 修正看不見的問題 */
-    /* 強制列表背景變成白色 (覆蓋深色模式) */
+    /* 2. 下拉選單 (展開列表) */
     div[data-baseweb="popover"] ul, ul[data-baseweb="menu"] {
         background-color: #ffffff !important;
     }
-    
-    /* 強制選項文字變成黑色粗體 */
     li[role="option"] {
         color: black !important;
-        background-color: #ffffff !important; /* 確保每一行背景都是白 */
+        background-color: #ffffff !important;
         font-weight: bold;
-        border-bottom: 1px solid #f0f0f0; /* 加個分隔線讓選項更清楚 */
+        border-bottom: 1px solid #f0f0f0;
     }
-    
-    /* 確保選項內的 div 文字也是黑的 */
-    li[role="option"] div {
-        color: black !important;
-    }
-
-    /* 滑鼠滑過/選取時變成淺藍色 */
+    li[role="option"] div { color: black !important; }
     li[role="option"]:hover, li[role="option"][aria-selected="true"] {
         background-color: #BBDEFB !important;
     }
     
-    /* 3. 輸入框 (名字輸入) */
+    /* 3. 輸入框 */
     .stTextInput input {
-        background-color: #E3F2FD !important; /* 淺藍色底 */
-        color: #000000 !important; /* 輸入時文字黑色 */
+        background-color: #E3F2FD !important;
+        color: #000000 !important;
         border: 2px solid #2196F3;
         border-radius: 10px;
         font-weight: bold;
     }
-    
-    /* 4. 修正提示詞 (Placeholder) - 變成粗體黑色 */
     .stTextInput input::placeholder {
-        color: #000000 !important; /* 強制黑色 */
-        font-weight: 900 !important; /* 特粗體 */
-        opacity: 1 !important; /* 確保不透明 */
+        color: #000000 !important;
+        font-weight: 900 !important;
+        opacity: 1 !important;
     }
     
-    /* 5. 修正多選框 (加料區) 的文字顏色 */
+    /* 4. 多選框標籤 */
     span[data-baseweb="tag"] {
         background-color: #1976D2 !important;
         color: white !important;
@@ -215,29 +198,4 @@ with tab1:
                 addon_total_price = 0
                 selected_addons_str = ""
                 if addon_dict:
-                    picked_addons = st.multiselect("👇 加點/加料 (可複選)", options=addon_dict.keys())
-                    for picked in picked_addons:
-                        addon_total_price += addon_dict[picked]
-                        clean_name = picked.split(" (")[0]
-                        selected_addons_str += f"+{clean_name} "
-                
-                note = st.text_input("其他備註", "")
-                final_price = base_price + addon_total_price
-                final_item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
-
-                st.markdown("### 步驟 3：確認送出")
-                if user_name and selected_area != "請選擇區域...":
-                    safe_name = urllib.parse.quote(user_name)
-                    safe_area = urllib.parse.quote(selected_area)
-                    safe_shop = urllib.parse.quote(shop_name)
-                    safe_item = urllib.parse.quote(final_item_str)
-                    safe_price = str(final_price)
-                    form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
-                                                 .replace("area", safe_area)\
-                                                 .replace("shop", safe_shop)\
-                                                 .replace("item", safe_item)\
-                                                 .replace("price", safe_price)
-                    st.info(f"餐點：**{base_item_name}** (${base_price})")
-                    if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
-                    st.success(f"💰 **總金額：${final_price}**")
-                    st.link_button("🚀 送出訂
+                    picked_addons = st.multise
