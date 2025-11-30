@@ -5,10 +5,10 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (介面修復版)")
+st.title("🍱 點餐魔術師 (LINE相容版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (深色模式修復) 👇
+# 👇 CSS 視覺優化區 👇
 st.markdown(
     """
     <style>
@@ -126,9 +126,13 @@ with tab1:
             if gen_area != "請選擇...":
                 p_area = urllib.parse.quote(gen_area)
                 link = f"{base_url}?area={p_area}"
+                # --- 修正處：這裡加上了 LINE 的特殊參數 ---
+                link += "&openExternalBrowser=1" 
+                
                 if gen_cat != "請選擇...": link += f"&cat={urllib.parse.quote(gen_cat)}"
                 if gen_shop != "請選擇...": link += f"&shop={urllib.parse.quote(gen_shop)}"
                 st.code(link, language="text")
+                st.caption("💡 提示：這個連結已經幫你加上『強制用瀏覽器開啟』的參數囉！")
 
     st.markdown("---")
     st.markdown("### 步驟 1：你是誰？")
@@ -224,9 +228,11 @@ with tab1:
                     if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
                     st.success(f"💰 **總金額：${final_price}**")
                     
-                    # --- 修正處：將文字獨立出來，避免斷行錯誤 ---
+                    # --- 修正處：提供兩種按鈕，確保 LINE 也能用 ---
                     btn_text = "🚀 送出訂單 (開啟 Google 表單)"
                     st.link_button(btn_text, form_link)
+                    
+                    st.markdown(f"👉 **[如果按鈕沒反應，請點這裡送出]({form_link})**", unsafe_allow_html=True)
                     
                 elif not user_name: st.error("⚠️ 請先輸入名字！")
 
