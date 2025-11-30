@@ -5,7 +5,7 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (絕對顯示版)")
+st.title("🍱 點餐魔術師 (智慧日期版)")
 
 # ==========================================
 # 👇 CSS 視覺優化區 👇
@@ -87,15 +87,13 @@ def load_menu(url):
         return df
     except: return pd.DataFrame()
 
-# --- 修改處：移除日期過濾，改為全部顯示並排序 ---
+# 修改：這裡只負責讀取，不過濾，過濾交給介面
 @st.cache_data(ttl=5) 
 def load_orders(url):
     try:
         df = pd.read_csv(url)
         if not df.empty:
-            # 1. 確保有資料
-            # 2. 自動按照第一欄 (通常是時間戳記) 進行「降序」排列
-            # 這樣最新的訂單永遠在最上面
+            # 依時間降序排列 (最新的在上面)
             time_col = df.columns[0]
             df = df.sort_values(by=time_col, ascending=False)
             return df
@@ -133,6 +131,7 @@ with tab1:
                 if gen_cat != "請選擇...": link += f"&cat={urllib.parse.quote(gen_cat)}"
                 if gen_shop != "請選擇...": link += f"&shop={urllib.parse.quote(gen_shop)}"
                 st.code(link, language="text")
+                st.caption("💡 提示：連結已包含強制瀏覽器開啟參數")
 
     st.markdown("---")
     st.markdown("### 步驟 1：你是誰？")
@@ -251,28 +250,67 @@ with tab1:
                     
                 elif not user_name: st.error("⚠️ 請先輸入名字！")
 
-# === Tab 2 ===
+# === Tab 2: 訂單總表 (新功能：日期篩選) ===
 with tab2:
-    st.subheader("目前訂單狀態 (自動同步)")
+    st.subheader("目前訂單狀態")
+    
+    # 1. 日期選擇器 (預設為今天)
+    today_taiwan = datetime.datetime.now() + datetime.timedelta(hours=8)
+    filter_date = st.date_input("📅 選擇要查看的日期", value=today_taiwan)
+    
     if st.button("🔄 重新整理訂單", key="ref2"): st.cache_data.clear()
+    
     orders_df = load_orders(ORDER_CSV_URL)
+    
     if not orders_df.empty:
+        # 2. 執行篩選邏輯 (解決 01 vs 1 的問題)
+        time_col = orders_df.columns[0] # 抓取時間戳記那一欄
+        
+        # 產生兩種格式： "2025/12/01" (補0) 和 "2025/12/1" (不補0)
+        search_str_1 = filter_date.strftime("%Y/%m/%d") # 標準格式
+        search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}" # Google常見格式
+        
+        # 篩選：只要包含其中一種格式就算選中
+        mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
+               orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
+        
+        filtered_orders = orders_df[mask]
+        
         try:
-            # --- 修改處：把時間戳記也顯示出來，方便對照 ---
-            st.dataframe(orders_df[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
-            total_price = orders_df['價格'].sum()
-            total_count = len(orders_df)
-            st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
-        except: st.dataframe(orders_df)
-    else: st.info("目前沒有任何訂單資料 (請確認 Google Sheet 是否有資料)")
+            # 顯示表格 (只顯示篩選後的)
+            st.dataframe(filtered_orders[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
+            
+            # 計算金額 (只計算篩選後的)
+            total_price = filtered_orders['價格'].sum()
+            total_count = len(filtered_orders)
+            st.markdown(f"### 💰 {filter_date.strftime('%m/%d')} 總金額：${total_price} (共 {total_count} 筆)")
+            
+            if total_count == 0:
+                st.info("💡 今天目前沒有訂單喔！(如果剛下單，請按重新整理)")
+                
+        except: st.dataframe(filtered_orders)
+    else: st.info("無訂單資料...")
 
 # === Tab 3 ===
 with tab3:
     st.subheader("店家訂單彙整")
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
-    if not orders_df.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
-        curr_orders = orders_df[orders_df["店家"] == shop_name]
+    
+    # 這裡也要加上日期過濾，不然小抄會印出昨天的單
+    time_col = orders_df.columns[0]
+    # 這裡我們預設只抓「Tab 2 選中的那個日期」
+    # (注意：這裡直接用今天日期，或者你可以把 Tab 2 的變數拿來用，但為了簡單，我們假設小抄只印今天的)
+    today_search_1 = today_taiwan.strftime("%Y/%m/%d")
+    today_search_2 = f"{today_taiwan.year}/{today_taiwan.month}/{today_taiwan.day}"
+    
+    mask = orders_df[time_col].astype(str).str.contains(today_search_1, na=False) | \
+           orders_df[time_col].astype(str).str.contains(today_search_2, na=False)
+    
+    todays_orders = orders_df[mask]
+
+    if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
+        curr_orders = todays_orders[todays_orders["店家"] == shop_name]
         if not curr_orders.empty:
             summary = curr_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
             txt = f"老闆你好，我要點餐 ({shop_name})：\n"
@@ -280,6 +318,6 @@ with tab3:
             for _, row in summary.iterrows(): txt += f"● {row['訂單內容']} x {row['數量']}\n"
             txt += f"------------------\n總共 {len(curr_orders)} 份。"
             st.text_area("複製文字", txt, height=200)
-        else: st.warning("尚無訂單。")
+        else: st.warning(f"今天還沒有 {shop_name} 的訂單。")
     elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
     else: st.warning("尚無資料")
