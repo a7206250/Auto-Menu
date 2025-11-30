@@ -5,10 +5,10 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (指定店家版)")
+st.title("🍱 點餐魔術師 (即時同步版)")
 
 # ==========================================
-# 👇 設定區 (已保留你的連結) 👇
+# 👇 設定區 (已幫你填入正確連結) 👇
 
 # 1. 菜單資料庫
 MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXUPPZds_lPc5m7p6yXXPr5LZ8ISmrpvHGiTY8iz3cFaPfJmWeo3UDCAbd1IIX3ZMEc7yGcAs3BsFY/pub?output=csv"
@@ -39,6 +39,7 @@ def load_orders(url):
         
         if not df.empty:
             time_col = df.columns[0]
+            # 確保是字串再比對
             today_df = df[df[time_col].astype(str).str.contains(today_str, na=False)]
             return today_df
         else:
@@ -53,13 +54,11 @@ tab1, tab2, tab3 = st.tabs(["👉 我要點餐", "📊 訂單總表", "📝 給�
 
 # === Tab 1: 點餐區 ===
 with tab1:
-    # --- 團主專用：連結產生器 (放在最上面，預設收合) ---
+    # --- 團主專用：連結產生器 ---
     with st.expander("👑 團主專用：產生指定店家連結 (點此展開)"):
         st.caption("選好店家後，複製下方的連結傳給家人，他們打開就會直接是這家店！")
-        # 這裡只是為了產生連結，不影響下方邏輯
         if not menu_df.empty:
-            # 1. 取得目前網址 (Streamlit Cloud 的網址)
-            # 這裡假設你的網址，如果不對請手動替換
+            # 假設這是你的 App 網址 (如果不對，你可以手動改成你的 .streamlit.app 網址)
             base_url = "https://auto-menu-c8coaalkxp2nyahawe4wxs.streamlit.app/"
             
             gen_areas = ["請選擇..."] + list(menu_df['區域'].dropna().unique())
@@ -71,11 +70,9 @@ with tab1:
             gen_shop = st.selectbox("2. 選擇店家", gen_shops, key="gen_shop")
             
             if gen_shop != "請選擇...":
-                # 製作參數
                 safe_area_param = urllib.parse.quote(gen_area)
                 safe_shop_param = urllib.parse.quote(gen_shop)
                 final_link = f"{base_url}?area={safe_area_param}&shop={safe_shop_param}"
-                
                 st.code(final_link, language="text")
                 st.caption("👆 點右上角複製按鈕，傳到 Line 群組")
 
@@ -88,15 +85,13 @@ with tab1:
     st.markdown("### 步驟 2：選擇店家")
     
     if not menu_df.empty:
-        # 0. 抓取網址參數 (Deep Linking 核心邏輯)
+        # 0. 抓取網址參數
         query_params = st.query_params
         target_area = query_params.get("area", None)
         target_shop = query_params.get("shop", None)
 
         # 1. 準備區域選單
         all_areas = ["請選擇區域..."] + list(menu_df['區域'].dropna().unique())
-        
-        # 決定區域選單的預設值 (index)
         area_index = 0
         if target_area and target_area in all_areas:
             area_index = all_areas.index(target_area)
@@ -109,21 +104,19 @@ with tab1:
             filtered_df = menu_df[menu_df['區域'] == selected_area]
             shop_list = ["請選擇店家..."] + list(filtered_df['店家'].unique())
             
-        # 決定店家選單的預設值 (index)
         shop_index = 0
         if target_shop and target_shop in shop_list:
             shop_index = shop_list.index(target_shop)
             
         shop_name = st.selectbox("🏪 選擇店家", shop_list, index=shop_index)
 
-        # 3. 顯示菜單 (邏輯不變)
+        # 3. 顯示菜單
         if shop_name != "請選擇店家..." and shop_name != "請先選擇區域...":
             shop_menu = menu_df[menu_df['店家'] == shop_name]
             shop_type = shop_menu.iloc[0]['類別'] 
             
             st.success(f"已載入：{shop_name}")
             
-            # 選餐邏輯
             shop_menu['顯示名稱'] = shop_menu['品項'] + " ($" + shop_menu['價格'].astype(str) + ")"
             selected_display = st.radio("請選擇品項：", shop_menu['顯示名稱'])
             
@@ -168,7 +161,7 @@ with tab1:
 # === Tab 2: 訂單總表 ===
 with tab2:
     st.subheader("目前訂單狀態 (自動同步)")
-    if st.button("🔄 重新整理訂單"):
+    if st.button("🔄 重新整理訂單", key="refresh_tab2"):
         st.cache_data.clear()
     
     orders_df = load_orders(ORDER_CSV_URL)
@@ -188,15 +181,17 @@ with tab2:
 # === Tab 3: 給店家小抄 ===
 with tab3:
     st.subheader("店家訂單彙整")
+    
+    # --- 新增：這裡也加一個刷新按鈕，確保資料是最新的 ---
+    if st.button("🔄 刷新資料 (產生最新小抄)", key="refresh_tab3"):
+        st.cache_data.clear()
+    
     orders_df = load_orders(ORDER_CSV_URL)
-    if not orders_df.empty and shop_name != "請選擇店家...":
+    
+    if not orders_df.empty and shop_name != "請選擇店家..." and shop_name != "請先選擇區域...":
         current_shop_orders = orders_df[orders_df["店家"] == shop_name]
+        
         if not current_shop_orders.empty:
             summary = current_shop_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
-            txt = f"老闆你好，我要點餐 ({shop_name})：\n------------------\n"
-            for _, row in summary.iterrows():
-                txt += f"● {row['訂單內容']} x {row['數量']}\n"
-            txt += f"------------------\n總共 {len(current_shop_orders)} 份。"
-            st.text_area("複製文字", txt, height=200)
-        else:
-            st.warning(f"目前還沒有 {shop_name} 的訂單。")
+            
+            txt = f"老闆你好，我要點餐 ({shop_name})
