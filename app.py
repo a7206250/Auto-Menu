@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import urllib.parse # 用來處理網址編碼
+import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
@@ -35,8 +36,25 @@ def load_menu(url):
 def load_orders(url):
     try:
         df = pd.read_csv(url)
-        return df
-    except: return pd.DataFrame()
+        
+        # 1. 取得今天的日期字串 (格式要跟 Google 表單的時間戳記長得像)
+        # 通常 Google 表單格式是 "2023/11/30 下午 12:00:00"
+        # 我們只要比對 "2023/11/30" 這部分即可
+        today_str = datetime.datetime.now().strftime("%Y/%m/%d")
+        
+        # 2. 進行篩選：只保留「時間戳記」欄位裡包含「今天日期」的資料
+        # 注意：Google 表單的第一欄通常叫 "時間戳記" 或 "Timestamp"
+        # 這裡做一個防呆，先確認欄位名稱
+        time_col = df.columns[0] # 抓取第一欄 (通常就是時間)
+        
+        # 這裡的邏輯是：把該欄轉成文字，然後檢查有沒有包含今天的日期
+        today_df = df[df[time_col].astype(str).str.contains(today_str, na=False)]
+        
+        return today_df
+    except Exception as e:
+        # 如果出錯 (例如日期格式不對)，為了保險起見，還是回傳全部資料，並印出錯誤
+        # st.error(f"日期篩選失敗: {e}") 
+        return pd.read_csv(url) # 降級處理：回傳全部
 
 menu_df = load_menu(MENU_CSV_URL)
 
