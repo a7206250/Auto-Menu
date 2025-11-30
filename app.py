@@ -5,14 +5,14 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (LINE完美版)")
+st.title("🍱 點餐魔術師 (絕對顯示版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (深色模式修復) 👇
+# 👇 CSS 視覺優化區 👇
 st.markdown(
     """
     <style>
-    /* 1. 下拉選單 (按鈕) */
+    /* 1. 下拉選單 */
     .stSelectbox div[data-baseweb="select"] > div {
         background-color: #1976D2 !important;
         border: 2px solid #0D47A1 !important;
@@ -26,7 +26,7 @@ st.markdown(
     }
     .stSelectbox svg { fill: white !important; }
 
-    /* 2. 下拉選單 (展開列表) */
+    /* 2. 下拉選單列表 */
     div[data-baseweb="popover"] ul, ul[data-baseweb="menu"] {
         background-color: #ffffff !important;
     }
@@ -87,15 +87,18 @@ def load_menu(url):
         return df
     except: return pd.DataFrame()
 
+# --- 修改處：移除日期過濾，改為全部顯示並排序 ---
 @st.cache_data(ttl=5) 
 def load_orders(url):
     try:
         df = pd.read_csv(url)
-        today_str = (datetime.datetime.now() + datetime.timedelta(hours=8)).strftime("%Y/%m/%d")
         if not df.empty:
+            # 1. 確保有資料
+            # 2. 自動按照第一欄 (通常是時間戳記) 進行「降序」排列
+            # 這樣最新的訂單永遠在最上面
             time_col = df.columns[0]
-            today_df = df[df[time_col].astype(str).str.contains(today_str, na=False)]
-            return today_df
+            df = df.sort_values(by=time_col, ascending=False)
+            return df
         else: return df
     except: return pd.read_csv(url)
 
@@ -130,7 +133,6 @@ with tab1:
                 if gen_cat != "請選擇...": link += f"&cat={urllib.parse.quote(gen_cat)}"
                 if gen_shop != "請選擇...": link += f"&shop={urllib.parse.quote(gen_shop)}"
                 st.code(link, language="text")
-                st.caption("💡 提示：連結已包含強制瀏覽器開啟參數")
 
     st.markdown("---")
     st.markdown("### 步驟 1：你是誰？")
@@ -226,8 +228,6 @@ with tab1:
                     if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
                     st.success(f"💰 **總金額：${final_price}**")
                     
-                    # --- 修正處：使用 HTML 模擬一顆大按鈕，直接解決 LINE 跳轉問題 ---
-                    # 這裡 CSS 寫在裡面，讓它看起來像個漂亮的藍色按鈕
                     html_button = f"""
                     <a href="{form_link}" target="_blank" style="
                         display: block;
@@ -258,12 +258,13 @@ with tab2:
     orders_df = load_orders(ORDER_CSV_URL)
     if not orders_df.empty:
         try:
-            st.dataframe(orders_df[["姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
+            # --- 修改處：把時間戳記也顯示出來，方便對照 ---
+            st.dataframe(orders_df[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
             total_price = orders_df['價格'].sum()
             total_count = len(orders_df)
             st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
         except: st.dataframe(orders_df)
-    else: st.info("無訂單資料...")
+    else: st.info("目前沒有任何訂單資料 (請確認 Google Sheet 是否有資料)")
 
 # === Tab 3 ===
 with tab3:
