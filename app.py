@@ -8,16 +8,15 @@ st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
 st.title("🍱 點餐魔術師 (永久保存版)")
 
 # ==========================================
-# 👇 設定區 (請修改這裡！) 👇
+# 👇 設定區 (已保留你填好的連結) 👇
 
-# 1. 菜單資料庫 (原本的那个)
+# 1. 菜單資料庫
 MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXUPPZds_lPc5m7p6yXXPr5LZ8ISmrpvHGiTY8iz3cFaPfJmWeo3UDCAbd1IIX3ZMEc7yGcAs3BsFY/pub?output=csv"
 
-# 2. 訂單資料庫 (步驟三發布的 CSV)
-ORDER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR7J3Q0wm7tSdmRdxjRJHFIYs6tRQELYbORio8Ug0ZNGfzOrRa8o9xN9U32z8HtVi1dShR5U6qeHlb/pub?output=csv" 
+# 2. 訂單資料庫
+ORDER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR7J3Q0wm7tSdmRdxjRJHFIYs6tRQELYbORio8Ug0ZNGfzOrRa8o9xN9U32z8HtVi1dShR5U6qeHlb/pub?output=csv"
 
-# 3. Google 表單預填連結 (步驟二取得的連結)
-# ⚠️ 請把 entry.xxxxxx 後面的 name, area... 等字保留，那是我們要替換的標記
+# 3. Google 表單預填連結
 FORM_URL_TEMPLATE = "https://docs.google.com/forms/d/e/1FAIpQLSdOAUZ6PBos8xj0J_dAe8stM5aI7yrfBOaXvcAocIAsLEkPfA/viewform?usp=pp_url&entry.1045899805=name&entry.1617860867=area&entry.131804259=shop&entry.2028542611=item&entry.1686582624=price"
 
 # ==========================================
@@ -37,23 +36,21 @@ def load_orders(url):
     try:
         df = pd.read_csv(url)
         
-        # 1. 取得今天的日期字串 (格式要跟 Google 表單的時間戳記長得像)
-        # 通常 Google 表單格式是 "2023/11/30 下午 12:00:00"
-        # 我們只要比對 "2023/11/30" 這部分即可
-        today_str = datetime.datetime.now().strftime("%Y/%m/%d")
+        # 1. 取得今天的日期字串 (修正為台灣時間 UTC+8)
+        # 加上 timedelta(hours=8) 確保早上點餐也能正常顯示
+        today_str = (datetime.datetime.now() + datetime.timedelta(hours=8)).strftime("%Y/%m/%d")
         
         # 2. 進行篩選：只保留「時間戳記」欄位裡包含「今天日期」的資料
-        # 注意：Google 表單的第一欄通常叫 "時間戳記" 或 "Timestamp"
-        # 這裡做一個防呆，先確認欄位名稱
-        time_col = df.columns[0] # 抓取第一欄 (通常就是時間)
-        
-        # 這裡的邏輯是：把該欄轉成文字，然後檢查有沒有包含今天的日期
-        today_df = df[df[time_col].astype(str).str.contains(today_str, na=False)]
-        
-        return today_df
+        if not df.empty:
+            time_col = df.columns[0] # 抓取第一欄 (通常就是時間)
+            # 這裡的邏輯是：把該欄轉成文字，然後檢查有沒有包含今天的日期
+            today_df = df[df[time_col].astype(str).str.contains(today_str, na=False)]
+            return today_df
+        else:
+            return df
+            
     except Exception as e:
-        # 如果出錯 (例如日期格式不對)，為了保險起見，還是回傳全部資料，並印出錯誤
-        # st.error(f"日期篩選失敗: {e}") 
+        # 如果出錯 (例如日期格式不對)，為了保險起見，還是回傳全部資料
         return pd.read_csv(url) # 降級處理：回傳全部
 
 menu_df = load_menu(MENU_CSV_URL)
@@ -108,7 +105,6 @@ with tab1:
             st.markdown("### 步驟 3：確認送出")
             if user_name and selected_area != "請選擇區域...":
                 # 把資料填入網址
-                # 這裡會自動把中文轉成網址編碼
                 safe_name = urllib.parse.quote(user_name)
                 safe_area = urllib.parse.quote(selected_area)
                 safe_shop = urllib.parse.quote(shop_name)
@@ -116,7 +112,6 @@ with tab1:
                 safe_price = str(price)
 
                 # 替換 Template 裡的關鍵字
-                # 注意：這裡要對應你在上方 FORM_URL_TEMPLATE 裡寫的假資料
                 form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
                                              .replace("area", safe_area)\
                                              .replace("shop", safe_shop)\
@@ -143,7 +138,6 @@ with tab2:
     orders_df = load_orders(ORDER_CSV_URL)
     
     if not orders_df.empty:
-        # Google 表單通常會有 "時間戳記" 欄位，我們可以保留
         # 顯示重點欄位
         try:
             display_cols = ["姓名", "店家", "訂單內容", "價格", "區域"]
