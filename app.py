@@ -58,7 +58,7 @@ with tab1:
     with st.expander("👑 團主專用：產生指定店家連結 (點此展開)"):
         st.caption("選好店家後，複製下方的連結傳給家人，他們打開就會直接是這家店！")
         if not menu_df.empty:
-            # 假設這是你的 App 網址 (如果不對，你可以手動改成你的 .streamlit.app 網址)
+            # 假設這是你的 App 網址
             base_url = "https://auto-menu-c8coaalkxp2nyahawe4wxs.streamlit.app/"
             
             gen_areas = ["請選擇..."] + list(menu_df['區域'].dropna().unique())
@@ -182,7 +182,6 @@ with tab2:
 with tab3:
     st.subheader("店家訂單彙整")
     
-    # --- 新增：這裡也加一個刷新按鈕，確保資料是最新的 ---
     if st.button("🔄 刷新資料 (產生最新小抄)", key="refresh_tab3"):
         st.cache_data.clear()
     
@@ -194,4 +193,18 @@ with tab3:
         if not current_shop_orders.empty:
             summary = current_shop_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
             
-            txt = f"老闆你好，我要點餐 ({shop_name})
+            # --- 修正處：將原本很長的一行拆成兩行寫，避免複製錯誤 ---
+            txt = f"老闆你好，我要點餐 ({shop_name})：\n"
+            txt += "------------------\n"
+            
+            for _, row in summary.iterrows():
+                txt += f"● {row['訂單內容']} x {row['數量']}\n"
+            txt += f"------------------\n總共 {len(current_shop_orders)} 份。"
+            
+            st.text_area("複製文字", txt, height=200)
+        else:
+            st.warning(f"目前還沒有 {shop_name} 的訂單。")
+    elif shop_name == "請選擇店家...":
+        st.info("👈 請先在第一頁「選擇店家」，這裡才會顯示該店的統計喔！")
+    else:
+        st.warning("目前還沒有資料。")
