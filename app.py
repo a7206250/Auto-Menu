@@ -17,7 +17,7 @@ ORDER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR7J3Q0wm7tSdm
 
 # 3. Google 表單預填連結 (步驟二取得的連結)
 # ⚠️ 請把 entry.xxxxxx 後面的 name, area... 等字保留，那是我們要替換的標記
-FORM_URL_TEMPLATE = "https://docs.google.com/forms/d/e/1FAIpQLSdOAUZ6PBos8xj0J_dAe8stM5aI7yrfBOaXvcAocIAsLEkPfA/viewform?usp=pp_url&entry.1045899805=Oscar&entry.1617860867=area&entry.131804259=shop&entry.2028542611=item&entry.1686582624=321"
+FORM_URL_TEMPLATE = "https://docs.google.com/forms/d/e/1FAIpQLSdOAUZ6PBos8xj0J_dAe8stM5aI7yrfBOaXvcAocIAsLEkPfA/viewform?usp=pp_url&entry.1045899805=name&entry.1617860867=area&entry.131804259=shop&entry.2028542611=item&entry.1686582624=price"
 
 # ==========================================
 
