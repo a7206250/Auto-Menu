@@ -77,7 +77,8 @@ with tab1:
                 with col_sugar:
                     sugar = st.selectbox("甜度", ["正常糖", "半糖", "微糖", "無糖"])
                 with col_ice:
-                    ice = st.selectbox("冰塊", ["正常冰", "少冰", "微冰", "去冰"])
+                    # 修改處：這裡補上了「常溫、溫、熱」等選項，並把標題改成「冰塊/溫度」
+                    ice = st.selectbox("冰塊/溫度", ["正常冰", "少冰", "微冰", "去冰", "完全去冰", "常溫", "溫", "熱"])
                 item_spec = f"{sugar}/{ice}"
             else:
                 item_spec = "標準"
