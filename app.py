@@ -39,6 +39,9 @@ def load_orders(url):
 
 menu_df = load_menu(MENU_CSV_URL)
 
+# 👇 插入這一行測試代碼 👇
+with st.expander("🕵️‍♂️ 除錯模式：檢查資料庫"):
+    st.dataframe(menu_df)
 # --- 3. 分頁結構 ---
 tab1, tab2, tab3 = st.tabs(["👉 我要點餐", "📊 訂單總表", "📝 給店家小抄"])
 
