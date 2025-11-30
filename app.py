@@ -8,41 +8,26 @@ st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
 st.title("🍱 點餐魔術師 (視覺增強版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (這是幫網頁化妝的魔法代碼) 👇
+# 👇 CSS 視覺優化區 👇
 st.markdown(
     """
     <style>
-    /* 1. 針對所有下拉選單 (Selectbox) 的外框做造型 */
     .stSelectbox div[data-baseweb="select"] > div {
-        background-color: #e3f2fd; /* 淺藍色底 (讓它跟背景分開) */
-        border: 2px solid #2196f3; /* 亮藍色邊框 */
-        border-radius: 10px;       /* 圓角 */
-        color: black;              /* 強制黑色文字 */
+        background-color: #e3f2fd;
+        border: 2px solid #2196f3;
+        border-radius: 10px;
+        color: black;
     }
-    
-    /* 2. 針對選單裡面的文字 */
     .stSelectbox div[data-baseweb="select"] span {
-        color: black !important;   /* 強制黑色，避免在深色模式看不見 */
-        font-weight: bold;         /* 加粗 */
-        font-size: 16px;           /* 字體加大 */
-    }
-
-    /* 3. 針對下拉後的選單列表 (Popup Menu) */
-    ul[data-baseweb="menu"] {
-        background-color: #ffffff !important; /* 選單背景全白 */
-    }
-    li[role="option"] {
-        color: black !important;      /* 選項文字黑色 */
+        color: black !important;
         font-weight: bold;
+        font-size: 16px;
     }
-    /* 滑鼠滑過選項時的顏色 */
-    li[role="option"]:hover {
-        background-color: #bbdefb !important; /* 淺藍色高亮 */
-    }
-    
-    /* 4. 優化輸入框 (名字輸入) */
+    ul[data-baseweb="menu"] { background-color: #ffffff !important; }
+    li[role="option"] { color: black !important; font-weight: bold; }
+    li[role="option"]:hover { background-color: #bbdefb !important; }
     .stTextInput input {
-        background-color: #fff9c4; /* 淺黃色底，提示要輸入 */
+        background-color: #fff9c4;
         color: black !important;
         border: 2px solid #fbc02d;
         border-radius: 10px;
@@ -94,19 +79,16 @@ tab1, tab2, tab3 = st.tabs(["👉 我要點餐", "📊 訂單總表", "📝 給�
 # === Tab 1: 點餐區 ===
 with tab1:
     with st.expander("👑 團主專用：產生指定連結 (含分類)"):
-        st.caption("現在可以產生鎖定「分類」的連結囉！")
+        st.caption("產生指定連結")
         if not menu_df.empty:
             base_url = "https://auto-menu-c8coaalkxp2nyahawe4wxs.streamlit.app/"
-            
             gen_areas = ["請選擇..."] + list(menu_df['區域'].dropna().unique())
             gen_area = st.selectbox("1. 選擇區域", gen_areas, key="g_area")
-            
             gen_cats = ["請選擇..."]
             if gen_area != "請選擇...":
                 area_df = menu_df[menu_df['區域'] == gen_area]
                 gen_cats = ["請選擇..."] + list(area_df['店家分類'].unique())
             gen_cat = st.selectbox("2. 選擇分類", gen_cats, key="g_cat")
-            
             gen_shops = ["請選擇..."]
             if gen_cat != "請選擇...":
                 cat_df = menu_df[(menu_df['區域'] == gen_area) & (menu_df['店家分類'] == gen_cat)]
@@ -116,12 +98,8 @@ with tab1:
             if gen_area != "請選擇...":
                 p_area = urllib.parse.quote(gen_area)
                 link = f"{base_url}?area={p_area}"
-                if gen_cat != "請選擇...":
-                    p_cat = urllib.parse.quote(gen_cat)
-                    link += f"&cat={p_cat}"
-                if gen_shop != "請選擇...":
-                    p_shop = urllib.parse.quote(gen_shop)
-                    link += f"&shop={p_shop}"
+                if gen_cat != "請選擇...": link += f"&cat={urllib.parse.quote(gen_cat)}"
+                if gen_shop != "請選擇...": link += f"&shop={urllib.parse.quote(gen_shop)}"
                 st.code(link, language="text")
 
     st.markdown("---")
@@ -129,7 +107,6 @@ with tab1:
     user_name = st.text_input("請輸入暱稱", placeholder="例如：Jason", key="user_name")
     
     st.markdown("### 步驟 2：選擇店家")
-    
     if not menu_df.empty:
         qp = st.query_params
         t_area, t_cat, t_shop = qp.get("area", None), qp.get("cat", None), qp.get("shop", None)
@@ -158,9 +135,7 @@ with tab1:
             shop_addons_df = shop_all_data[shop_all_data['類別'] == 'addon']
             
             st.success(f"已載入：{shop_name}")
-            
-            if main_menu.empty:
-                st.warning("此店家無主餐品項")
+            if main_menu.empty: st.warning("此店家無主餐品項")
             else:
                 main_menu['顯示名稱'] = main_menu['品項'] + " ($" + main_menu['價格'].astype(str) + ")"
                 selected_display = st.radio("請選擇品項：", main_menu['顯示名稱'])
@@ -212,22 +187,18 @@ with tab1:
                     safe_shop = urllib.parse.quote(shop_name)
                     safe_item = urllib.parse.quote(final_item_str)
                     safe_price = str(final_price)
-
                     form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
                                                  .replace("area", safe_area)\
                                                  .replace("shop", safe_shop)\
                                                  .replace("item", safe_item)\
                                                  .replace("price", safe_price)
-
                     st.info(f"餐點：**{base_item_name}** (${base_price})")
-                    if addon_total_price > 0:
-                        st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
+                    if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
                     st.success(f"💰 **總金額：${final_price}**")
                     st.link_button("🚀 送出訂單 (開啟 Google 表單)", form_link)
-                elif not user_name:
-                    st.error("⚠️ 請先輸入名字！")
+                elif not user_name: st.error("⚠️ 請先輸入名字！")
 
-# === Tab 2 & 3 ===
+# === Tab 2 ===
 with tab2:
     st.subheader("目前訂單狀態 (自動同步)")
     if st.button("🔄 重新整理訂單", key="ref2"): st.cache_data.clear()
@@ -235,4 +206,29 @@ with tab2:
     if not orders_df.empty:
         try:
             st.dataframe(orders_df[["姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
-            st.markdown(f"### 💰 總金額：${orders_df['價格'].sum()} (共 {len
+            
+            # --- 修正處：將計算分開寫，避免 f-string 過長被截斷 ---
+            total_price = orders_df['價格'].sum()
+            total_count = len(orders_df)
+            st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
+            
+        except: st.dataframe(orders_df)
+    else: st.info("無訂單資料...")
+
+# === Tab 3 ===
+with tab3:
+    st.subheader("店家訂單彙整")
+    if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
+    orders_df = load_orders(ORDER_CSV_URL)
+    if not orders_df.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
+        curr_orders = orders_df[orders_df["店家"] == shop_name]
+        if not curr_orders.empty:
+            summary = curr_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
+            txt = f"老闆你好，我要點餐 ({shop_name})：\n"
+            txt += "------------------\n"
+            for _, row in summary.iterrows(): txt += f"● {row['訂單內容']} x {row['數量']}\n"
+            txt += f"------------------\n總共 {len(curr_orders)} 份。"
+            st.text_area("複製文字", txt, height=200)
+        else: st.warning("尚無訂單。")
+    elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
+    else: st.warning("尚無資料")
