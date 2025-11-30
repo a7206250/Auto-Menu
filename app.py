@@ -5,52 +5,77 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (藍白科技風)")
+st.title("🍱 點餐魔術師 (介面修復版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (配色修改版) 👇
+# 👇 CSS 視覺優化區 (針對深色模式修復) 👇
 st.markdown(
     """
     <style>
-    /* 1. 下拉選單 (Selectbox) - 亮藍底白字 */
+    /* 1. 下拉選單 (未展開時的按鈕) - 維持亮藍底白字 */
     .stSelectbox div[data-baseweb="select"] > div {
-        background-color: #1976D2; /* 亮藍色 (為了讓白字看得到，顏色稍微深一點點) */
-        border: 2px solid #0D47A1; /* 深藍色邊框 */
+        background-color: #1976D2 !important; /* 亮藍色 */
+        border: 2px solid #0D47A1 !important;
         border-radius: 10px;
-        color: white;              /* 白色文字 */
+        color: white !important;
     }
     
-    /* 選單內的文字設定 */
+    /* 按鈕內的文字強制白色 */
     .stSelectbox div[data-baseweb="select"] span {
-        color: white !important;   /* 強制白色 */
-        font-weight: bold;         /* 加粗 */
+        color: white !important;
+        font-weight: bold;
         font-size: 16px;
     }
 
-    /* 下拉箭頭的顏色也改成白色 */
+    /* 下拉箭頭強制白色 */
     .stSelectbox svg {
         fill: white !important;
     }
 
-    /* 2. 下拉後的選單列表 (Popup Menu) */
-    ul[data-baseweb="menu"] {
+    /* 2. 下拉選單 (展開後的列表) - 修正看不見的問題 */
+    /* 強制列表背景變成白色 (覆蓋深色模式) */
+    div[data-baseweb="popover"] ul, ul[data-baseweb="menu"] {
         background-color: #ffffff !important;
     }
+    
+    /* 強制選項文字變成黑色粗體 */
     li[role="option"] {
-        color: black !important;   /* 選項列表維持黑色，比較好讀 */
+        color: black !important;
+        background-color: #ffffff !important; /* 確保每一行背景都是白 */
         font-weight: bold;
-    }
-    li[role="option"]:hover {
-        background-color: #BBDEFB !important; /* 滑過去變成淺藍色 */
+        border-bottom: 1px solid #f0f0f0; /* 加個分隔線讓選項更清楚 */
     }
     
-    /* 3. 輸入框 (名字輸入) - 淺藍色底 */
+    /* 確保選項內的 div 文字也是黑的 */
+    li[role="option"] div {
+        color: black !important;
+    }
+
+    /* 滑鼠滑過/選取時變成淺藍色 */
+    li[role="option"]:hover, li[role="option"][aria-selected="true"] {
+        background-color: #BBDEFB !important;
+    }
+    
+    /* 3. 輸入框 (名字輸入) */
     .stTextInput input {
-        background-color: #E3F2FD; /* 極淺藍色底 */
-        color: #0D47A1 !important; /* 深藍色文字 */
+        background-color: #E3F2FD !important; /* 淺藍色底 */
+        color: #000000 !important; /* 輸入時文字黑色 */
         border: 2px solid #2196F3;
         border-radius: 10px;
         font-weight: bold;
+    }
+    
+    /* 4. 修正提示詞 (Placeholder) - 變成粗體黑色 */
+    .stTextInput input::placeholder {
+        color: #000000 !important; /* 強制黑色 */
+        font-weight: 900 !important; /* 特粗體 */
+        opacity: 1 !important; /* 確保不透明 */
+    }
+    
+    /* 5. 修正多選框 (加料區) 的文字顏色 */
+    span[data-baseweb="tag"] {
+        background-color: #1976D2 !important;
+        color: white !important;
     }
     </style>
     """,
@@ -215,37 +240,4 @@ with tab1:
                     st.info(f"餐點：**{base_item_name}** (${base_price})")
                     if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
                     st.success(f"💰 **總金額：${final_price}**")
-                    st.link_button("🚀 送出訂單 (開啟 Google 表單)", form_link)
-                elif not user_name: st.error("⚠️ 請先輸入名字！")
-
-# === Tab 2 ===
-with tab2:
-    st.subheader("目前訂單狀態 (自動同步)")
-    if st.button("🔄 重新整理訂單", key="ref2"): st.cache_data.clear()
-    orders_df = load_orders(ORDER_CSV_URL)
-    if not orders_df.empty:
-        try:
-            st.dataframe(orders_df[["姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
-            total_price = orders_df['價格'].sum()
-            total_count = len(orders_df)
-            st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
-        except: st.dataframe(orders_df)
-    else: st.info("無訂單資料...")
-
-# === Tab 3 ===
-with tab3:
-    st.subheader("店家訂單彙整")
-    if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
-    orders_df = load_orders(ORDER_CSV_URL)
-    if not orders_df.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
-        curr_orders = orders_df[orders_df["店家"] == shop_name]
-        if not curr_orders.empty:
-            summary = curr_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
-            txt = f"老闆你好，我要點餐 ({shop_name})：\n"
-            txt += "------------------\n"
-            for _, row in summary.iterrows(): txt += f"● {row['訂單內容']} x {row['數量']}\n"
-            txt += f"------------------\n總共 {len(curr_orders)} 份。"
-            st.text_area("複製文字", txt, height=200)
-        else: st.warning("尚無訂單。")
-    elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
-    else: st.warning("尚無資料")
+                    st.link_button("🚀 送出訂
