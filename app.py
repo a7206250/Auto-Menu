@@ -5,32 +5,52 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (視覺增強版)")
+st.title("🍱 點餐魔術師 (藍白科技風)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 👇
+# 👇 CSS 視覺優化區 (配色修改版) 👇
 st.markdown(
     """
     <style>
+    /* 1. 下拉選單 (Selectbox) - 亮藍底白字 */
     .stSelectbox div[data-baseweb="select"] > div {
-        background-color: #e3f2fd;
-        border: 2px solid #2196f3;
+        background-color: #1976D2; /* 亮藍色 (為了讓白字看得到，顏色稍微深一點點) */
+        border: 2px solid #0D47A1; /* 深藍色邊框 */
         border-radius: 10px;
-        color: black;
+        color: white;              /* 白色文字 */
     }
+    
+    /* 選單內的文字設定 */
     .stSelectbox div[data-baseweb="select"] span {
-        color: black !important;
-        font-weight: bold;
+        color: white !important;   /* 強制白色 */
+        font-weight: bold;         /* 加粗 */
         font-size: 16px;
     }
-    ul[data-baseweb="menu"] { background-color: #ffffff !important; }
-    li[role="option"] { color: black !important; font-weight: bold; }
-    li[role="option"]:hover { background-color: #bbdefb !important; }
+
+    /* 下拉箭頭的顏色也改成白色 */
+    .stSelectbox svg {
+        fill: white !important;
+    }
+
+    /* 2. 下拉後的選單列表 (Popup Menu) */
+    ul[data-baseweb="menu"] {
+        background-color: #ffffff !important;
+    }
+    li[role="option"] {
+        color: black !important;   /* 選項列表維持黑色，比較好讀 */
+        font-weight: bold;
+    }
+    li[role="option"]:hover {
+        background-color: #BBDEFB !important; /* 滑過去變成淺藍色 */
+    }
+    
+    /* 3. 輸入框 (名字輸入) - 淺藍色底 */
     .stTextInput input {
-        background-color: #fff9c4;
-        color: black !important;
-        border: 2px solid #fbc02d;
+        background-color: #E3F2FD; /* 極淺藍色底 */
+        color: #0D47A1 !important; /* 深藍色文字 */
+        border: 2px solid #2196F3;
         border-radius: 10px;
+        font-weight: bold;
     }
     </style>
     """,
@@ -206,12 +226,9 @@ with tab2:
     if not orders_df.empty:
         try:
             st.dataframe(orders_df[["姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
-            
-            # --- 修正處：將計算分開寫，避免 f-string 過長被截斷 ---
             total_price = orders_df['價格'].sum()
             total_count = len(orders_df)
             st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
-            
         except: st.dataframe(orders_df)
     else: st.info("無訂單資料...")
 
