@@ -5,7 +5,7 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (藍白科技版)")
+st.title("🍱 點餐魔術師 (介面修復版)")
 
 # ==========================================
 # 👇 CSS 視覺優化區 (深色模式修復) 👇
@@ -198,4 +198,66 @@ with tab1:
                 addon_total_price = 0
                 selected_addons_str = ""
                 if addon_dict:
-                    picked_addons = st.multise
+                    picked_addons = st.multiselect("👇 加點/加料 (可複選)", options=addon_dict.keys())
+                    for picked in picked_addons:
+                        addon_total_price += addon_dict[picked]
+                        clean_name = picked.split(" (")[0]
+                        selected_addons_str += f"+{clean_name} "
+                
+                note = st.text_input("其他備註", "")
+                final_price = base_price + addon_total_price
+                final_item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
+
+                st.markdown("### 步驟 3：確認送出")
+                if user_name and selected_area != "請選擇區域...":
+                    safe_name = urllib.parse.quote(user_name)
+                    safe_area = urllib.parse.quote(selected_area)
+                    safe_shop = urllib.parse.quote(shop_name)
+                    safe_item = urllib.parse.quote(final_item_str)
+                    safe_price = str(final_price)
+                    form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
+                                                 .replace("area", safe_area)\
+                                                 .replace("shop", safe_shop)\
+                                                 .replace("item", safe_item)\
+                                                 .replace("price", safe_price)
+                    st.info(f"餐點：**{base_item_name}** (${base_price})")
+                    if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
+                    st.success(f"💰 **總金額：${final_price}**")
+                    
+                    # --- 修正處：將文字獨立出來，避免斷行錯誤 ---
+                    btn_text = "🚀 送出訂單 (開啟 Google 表單)"
+                    st.link_button(btn_text, form_link)
+                    
+                elif not user_name: st.error("⚠️ 請先輸入名字！")
+
+# === Tab 2 ===
+with tab2:
+    st.subheader("目前訂單狀態 (自動同步)")
+    if st.button("🔄 重新整理訂單", key="ref2"): st.cache_data.clear()
+    orders_df = load_orders(ORDER_CSV_URL)
+    if not orders_df.empty:
+        try:
+            st.dataframe(orders_df[["姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
+            total_price = orders_df['價格'].sum()
+            total_count = len(orders_df)
+            st.markdown(f"### 💰 總金額：${total_price} (共 {total_count} 筆)")
+        except: st.dataframe(orders_df)
+    else: st.info("無訂單資料...")
+
+# === Tab 3 ===
+with tab3:
+    st.subheader("店家訂單彙整")
+    if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
+    orders_df = load_orders(ORDER_CSV_URL)
+    if not orders_df.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
+        curr_orders = orders_df[orders_df["店家"] == shop_name]
+        if not curr_orders.empty:
+            summary = curr_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
+            txt = f"老闆你好，我要點餐 ({shop_name})：\n"
+            txt += "------------------\n"
+            for _, row in summary.iterrows(): txt += f"● {row['訂單內容']} x {row['數量']}\n"
+            txt += f"------------------\n總共 {len(curr_orders)} 份。"
+            st.text_area("複製文字", txt, height=200)
+        else: st.warning("尚無訂單。")
+    elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
+    else: st.warning("尚無資料")
