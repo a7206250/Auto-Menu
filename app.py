@@ -96,7 +96,7 @@ with tab1:
         if target_area and target_area in all_areas:
             area_index = all_areas.index(target_area)
             
-        selected_area = st.selectbox("📍 請問你在哪一區？", all_areas, index=area_index)
+        selected_area = st.selectbox("📍 請選擇鄉鎮？", all_areas, index=area_index)
         
         # 2. 準備店家選單
         shop_list = ["請選擇店家..."]
