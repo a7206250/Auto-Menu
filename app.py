@@ -344,25 +344,69 @@ with tab2:
     else: st.info("無訂單資料...")
 
 # === Tab 3 ===
+# === Tab 3: 給店家小抄 (智慧拆解版) ===
 with tab3:
     st.subheader("店家訂單彙整")
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
+    
+    # 日期過濾 (沿用 Tab 2 的變數，如果 Tab 2 沒選日期，預設今天)
+    try:
+        filter_date
+    except NameError:
+        filter_date = datetime.datetime.now() + datetime.timedelta(hours=8)
+
     time_col = orders_df.columns[0]
-    today_search_1 = today_taiwan.strftime("%Y/%m/%d")
-    today_search_2 = f"{today_taiwan.year}/{today_taiwan.month}/{today_taiwan.day}"
-    mask = orders_df[time_col].astype(str).str.contains(today_search_1, na=False) | \
-           orders_df[time_col].astype(str).str.contains(today_search_2, na=False)
+    search_str_1 = filter_date.strftime("%Y/%m/%d")
+    search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
+    mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
+           orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
     todays_orders = orders_df[mask]
+
     if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
         curr_orders = todays_orders[todays_orders["店家"] == shop_name]
+        
         if not curr_orders.empty:
-            summary = curr_orders.groupby(["訂單內容"]).size().reset_index(name='數量')
+            # --- 🌟 這裡是大改版的核心邏輯 🌟 ---
+            # 我們要建立一個字典來統計各個品項的總數
+            item_counter = {}
+            
+            for items_str in curr_orders["訂單內容"]:
+                # 1. 先用 " | " 切割不同品項
+                items = str(items_str).split(" | ")
+                
+                for item in items:
+                    item_name = item.strip()
+                    qty = 1 # 預設數量
+                    
+                    # 2. 檢查後面有沒有 " x2", " x10" 這種標記
+                    # 邏輯：從字串最後面找 " x"
+                    if " x" in item_name:
+                        parts = item_name.rsplit(" x", 1) # 從右邊切一次
+                        if len(parts) == 2 and parts[1].isdigit():
+                            item_name = parts[0]
+                            qty = int(parts[1])
+                    
+                    # 3. 累加到字典中
+                    if item_name in item_counter:
+                        item_counter[item_name] += qty
+                    else:
+                        item_counter[item_name] = qty
+            
+            # --- 產生統計文字 ---
             txt = f"老闆你好，我要點餐 ({shop_name})：\n"
             txt += "------------------\n"
-            for _, row in summary.iterrows(): txt += f"● {row['訂單內容']} x {row['數量']}\n"
-            txt += f"------------------\n總共 {len(curr_orders)} 份。"
-            st.text_area("複製文字", txt, height=200)
-        else: st.warning(f"今天還沒有 {shop_name} 的訂單。")
+            
+            total_cups = 0
+            for name, quantity in item_counter.items():
+                txt += f"● {name} x {quantity}\n"
+                total_cups += quantity
+                
+            txt += "------------------\n"
+            txt += f"總共 {total_cups} 份餐點。\n"
+            txt += f"訂單日期：{filter_date.strftime('%Y/%m/%d')}"
+            
+            st.text_area("複製文字", txt, height=300)
+        else: st.warning(f"今天 ({filter_date.strftime('%m/%d')}) 還沒有 {shop_name} 的訂單。")
     elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
     else: st.warning("尚無資料")
