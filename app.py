@@ -5,7 +5,7 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (智慧日期版)")
+st.title("🍱 點餐魔術師 (數量倍增版)")
 
 # ==========================================
 # 👇 CSS 視覺優化區 👇
@@ -55,10 +55,20 @@ st.markdown(
         opacity: 1 !important;
     }
     
-    /* 4. 多選框標籤 */
+    /* 4. 多選框與數字輸入框優化 */
     span[data-baseweb="tag"] {
         background-color: #1976D2 !important;
         color: white !important;
+    }
+    /* 讓數字輸入框明顯一點 */
+    div[data-baseweb="input"] {
+        background-color: #E3F2FD !important;
+        border-radius: 10px;
+        border: 1px solid #2196F3;
+    }
+    input[type="number"] {
+        font-weight: bold !important;
+        color: black !important;
     }
     </style>
     """,
@@ -87,13 +97,11 @@ def load_menu(url):
         return df
     except: return pd.DataFrame()
 
-# 修改：這裡只負責讀取，不過濾，過濾交給介面
 @st.cache_data(ttl=5) 
 def load_orders(url):
     try:
         df = pd.read_csv(url)
         if not df.empty:
-            # 依時間降序排列 (最新的在上面)
             time_col = df.columns[0]
             df = df.sort_values(by=time_col, ascending=False)
             return df
@@ -131,7 +139,6 @@ with tab1:
                 if gen_cat != "請選擇...": link += f"&cat={urllib.parse.quote(gen_cat)}"
                 if gen_shop != "請選擇...": link += f"&shop={urllib.parse.quote(gen_shop)}"
                 st.code(link, language="text")
-                st.caption("💡 提示：連結已包含強制瀏覽器開啟參數")
 
     st.markdown("---")
     st.markdown("### 步驟 1：你是誰？")
@@ -208,8 +215,23 @@ with tab1:
                         selected_addons_str += f"+{clean_name} "
                 
                 note = st.text_input("其他備註", "")
-                final_price = base_price + addon_total_price
-                final_item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
+                
+                # --- 新增功能：數量選擇器 ---
+                st.write("---")
+                col_qty, col_empty = st.columns([1, 2])
+                with col_qty:
+                    quantity = st.number_input("🔢 數量", min_value=1, max_value=20, value=1, step=1)
+                
+                # --- 計算總金額 (單價 * 數量) ---
+                unit_price = base_price + addon_total_price
+                final_price = unit_price * quantity
+                
+                # --- 組合字串 (如果數量 > 1，加上 xN) ---
+                item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
+                if quantity > 1:
+                    final_item_str = f"{item_str} x{quantity}"
+                else:
+                    final_item_str = item_str
 
                 st.markdown("### 步驟 3：確認送出")
                 if user_name and selected_area != "請選擇區域...":
@@ -223,8 +245,12 @@ with tab1:
                                                  .replace("shop", safe_shop)\
                                                  .replace("item", safe_item)\
                                                  .replace("price", safe_price)
-                    st.info(f"餐點：**{base_item_name}** (${base_price})")
-                    if addon_total_price > 0: st.warning(f"加料：**{selected_addons_str}** (+${addon_total_price})")
+                    
+                    # 顯示計算公式給使用者看，比較安心
+                    st.info(f"餐點：**{item_str}**")
+                    if quantity > 1:
+                        st.write(f"單價 ${unit_price} × 數量 {quantity}")
+                    
                     st.success(f"💰 **總金額：${final_price}**")
                     
                     html_button = f"""
@@ -250,11 +276,9 @@ with tab1:
                     
                 elif not user_name: st.error("⚠️ 請先輸入名字！")
 
-# === Tab 2: 訂單總表 (新功能：日期篩選) ===
+# === Tab 2 ===
 with tab2:
     st.subheader("目前訂單狀態")
-    
-    # 1. 日期選擇器 (預設為今天)
     today_taiwan = datetime.datetime.now() + datetime.timedelta(hours=8)
     filter_date = st.date_input("📅 選擇要查看的日期", value=today_taiwan)
     
@@ -263,31 +287,21 @@ with tab2:
     orders_df = load_orders(ORDER_CSV_URL)
     
     if not orders_df.empty:
-        # 2. 執行篩選邏輯 (解決 01 vs 1 的問題)
-        time_col = orders_df.columns[0] # 抓取時間戳記那一欄
+        time_col = orders_df.columns[0]
+        search_str_1 = filter_date.strftime("%Y/%m/%d")
+        search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
         
-        # 產生兩種格式： "2025/12/01" (補0) 和 "2025/12/1" (不補0)
-        search_str_1 = filter_date.strftime("%Y/%m/%d") # 標準格式
-        search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}" # Google常見格式
-        
-        # 篩選：只要包含其中一種格式就算選中
         mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
                orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
         
         filtered_orders = orders_df[mask]
         
         try:
-            # 顯示表格 (只顯示篩選後的)
             st.dataframe(filtered_orders[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
-            
-            # 計算金額 (只計算篩選後的)
             total_price = filtered_orders['價格'].sum()
             total_count = len(filtered_orders)
             st.markdown(f"### 💰 {filter_date.strftime('%m/%d')} 總金額：${total_price} (共 {total_count} 筆)")
-            
-            if total_count == 0:
-                st.info("💡 今天目前沒有訂單喔！(如果剛下單，請按重新整理)")
-                
+            if total_count == 0: st.info("💡 今天目前沒有訂單喔！")
         except: st.dataframe(filtered_orders)
     else: st.info("無訂單資料...")
 
@@ -297,16 +311,11 @@ with tab3:
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
     
-    # 這裡也要加上日期過濾，不然小抄會印出昨天的單
     time_col = orders_df.columns[0]
-    # 這裡我們預設只抓「Tab 2 選中的那個日期」
-    # (注意：這裡直接用今天日期，或者你可以把 Tab 2 的變數拿來用，但為了簡單，我們假設小抄只印今天的)
     today_search_1 = today_taiwan.strftime("%Y/%m/%d")
     today_search_2 = f"{today_taiwan.year}/{today_taiwan.month}/{today_taiwan.day}"
-    
     mask = orders_df[time_col].astype(str).str.contains(today_search_1, na=False) | \
            orders_df[time_col].astype(str).str.contains(today_search_2, na=False)
-    
     todays_orders = orders_df[mask]
 
     if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
