@@ -5,14 +5,14 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (數量倍增版)")
+st.title("🍱 點餐魔術師 (購物車版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 👇
+# 👇 CSS 視覺優化區 (含數字框修復) 👇
 st.markdown(
     """
     <style>
-    /* 1. 下拉選單 */
+    /* 1. 下拉選單 (按鈕) */
     .stSelectbox div[data-baseweb="select"] > div {
         background-color: #1976D2 !important;
         border: 2px solid #0D47A1 !important;
@@ -26,7 +26,7 @@ st.markdown(
     }
     .stSelectbox svg { fill: white !important; }
 
-    /* 2. 下拉選單列表 */
+    /* 2. 下拉選單 (列表) */
     div[data-baseweb="popover"] ul, ul[data-baseweb="menu"] {
         background-color: #ffffff !important;
     }
@@ -41,7 +41,7 @@ st.markdown(
         background-color: #BBDEFB !important;
     }
     
-    /* 3. 輸入框 */
+    /* 3. 輸入框 (名字) */
     .stTextInput input {
         background-color: #E3F2FD !important;
         color: #000000 !important;
@@ -55,20 +55,27 @@ st.markdown(
         opacity: 1 !important;
     }
     
-    /* 4. 多選框與數字輸入框優化 */
+    /* 4. 多選框標籤 */
     span[data-baseweb="tag"] {
         background-color: #1976D2 !important;
         color: white !important;
     }
-    /* 讓數字輸入框明顯一點 */
+
+    /* 5. 數字輸入框 (修復看不清楚的問題) */
     div[data-baseweb="input"] {
-        background-color: #E3F2FD !important;
+        background-color: #1976D2 !important; /* 改成深藍底 */
+        border: 2px solid #0D47A1 !important;
         border-radius: 10px;
-        border: 1px solid #2196F3;
+        color: white !important; /* 改成白字 */
     }
     input[type="number"] {
+        color: white !important;
         font-weight: bold !important;
-        color: black !important;
+        caret-color: white; /* 游標也是白色 */
+    }
+    /* 讓 + - 按鈕也明顯一點 (如果有顯示的話) */
+    button[tabindex="-1"] {
+        color: white !important;
     }
     </style>
     """,
@@ -82,6 +89,10 @@ MENU_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTXUPPZds_lPc5m7
 ORDER_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTR7J3Q0wm7tSdmRdxjRJHFIYs6tRQELYbORio8Ug0ZNGfzOrRa8o9xN9U32z8HtVi1dShR5U6qeHlb/pub?output=csv"
 FORM_URL_TEMPLATE = "https://docs.google.com/forms/d/e/1FAIpQLSdOAUZ6PBos8xj0J_dAe8stM5aI7yrfBOaXvcAocIAsLEkPfA/viewform?usp=pp_url&entry.1045899805=name&entry.1617860867=area&entry.131804259=shop&entry.2028542611=item&entry.1686582624=price"
 # ==========================================
+
+# --- 初始化購物車 ---
+if 'cart' not in st.session_state:
+    st.session_state['cart'] = []
 
 # --- 2. 讀取資料函數 ---
 @st.cache_data(ttl=30)
@@ -115,8 +126,7 @@ tab1, tab2, tab3 = st.tabs(["👉 我要點餐", "📊 訂單總表", "📝 給�
 
 # === Tab 1: 點餐區 ===
 with tab1:
-    with st.expander("👑 團主專用：產生指定連結 (含分類)"):
-        st.caption("產生指定連結")
+    with st.expander("👑 團主專用：產生指定連結"):
         if not menu_df.empty:
             base_url = "https://auto-menu-c8coaalkxp2nyahawe4wxs.streamlit.app/"
             gen_areas = ["請選擇..."] + list(menu_df['區域'].dropna().unique())
@@ -168,6 +178,13 @@ with tab1:
         shop_name = st.selectbox("🏪 店家", shop_list, index=idx_shop)
 
         if shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
+            # --- 當換店家時，提醒清空購物車 (避免A店的單跑到B店) ---
+            if st.session_state['cart'] and st.session_state['cart'][0]['shop'] != shop_name:
+                st.warning(f"⚠️ 你之前選擇了 {st.session_state['cart'][0]['shop']} 的商品，換店將會清空購物車。")
+                if st.button("🗑️ 清空購物車並換店"):
+                    st.session_state['cart'] = []
+                    st.rerun()
+
             shop_all_data = menu_df[menu_df['店家'] == shop_name]
             main_menu = shop_all_data[shop_all_data['類別'] != 'addon']
             shop_addons_df = shop_all_data[shop_all_data['類別'] == 'addon']
@@ -216,86 +233,107 @@ with tab1:
                 
                 note = st.text_input("其他備註", "")
                 
-                # --- 新增功能：數量選擇器 ---
                 st.write("---")
                 col_qty, col_empty = st.columns([1, 2])
                 with col_qty:
                     quantity = st.number_input("🔢 數量", min_value=1, max_value=20, value=1, step=1)
                 
-                # --- 計算總金額 (單價 * 數量) ---
                 unit_price = base_price + addon_total_price
-                final_price = unit_price * quantity
+                subtotal = unit_price * quantity
                 
-                # --- 組合字串 (如果數量 > 1，加上 xN) ---
                 item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
                 if quantity > 1:
-                    final_item_str = f"{item_str} x{quantity}"
+                    display_item_str = f"{item_str} x{quantity}"
                 else:
-                    final_item_str = item_str
+                    display_item_str = item_str
 
-                st.markdown("### 步驟 3：確認送出")
-                if user_name and selected_area != "請選擇區域...":
-                    safe_name = urllib.parse.quote(user_name)
-                    safe_area = urllib.parse.quote(selected_area)
-                    safe_shop = urllib.parse.quote(shop_name)
-                    safe_item = urllib.parse.quote(final_item_str)
-                    safe_price = str(final_price)
-                    form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
-                                                 .replace("area", safe_area)\
-                                                 .replace("shop", safe_shop)\
-                                                 .replace("item", safe_item)\
-                                                 .replace("price", safe_price)
+                # --- 這裡改成「加入購物車」 ---
+                if st.button("🛒 加入購物車"):
+                    if not user_name:
+                        st.error("⚠️ 請先輸入名字！")
+                    else:
+                        st.session_state['cart'].append({
+                            "shop": shop_name,
+                            "item": display_item_str,
+                            "price": subtotal,
+                            "area": selected_area # 記錄區域
+                        })
+                        st.toast(f"已加入：{display_item_str}")
+
+                # --- 步驟 3：顯示購物車與結帳 ---
+                st.markdown("### 步驟 3：確認與送出")
+                
+                if len(st.session_state['cart']) > 0:
+                    st.write("📋 **目前清單：**")
+                    cart_total = 0
+                    cart_items_str_list = []
                     
-                    # 顯示計算公式給使用者看，比較安心
-                    st.info(f"餐點：**{item_str}**")
-                    if quantity > 1:
-                        st.write(f"單價 ${unit_price} × 數量 {quantity}")
+                    for idx, item in enumerate(st.session_state['cart']):
+                        st.text(f"{idx+1}. {item['item']} (${item['price']})")
+                        cart_total += item['price']
+                        cart_items_str_list.append(item['item'])
                     
-                    st.success(f"💰 **總金額：${final_price}**")
+                    st.markdown(f"#### 💰 總金額：${cart_total}")
                     
-                    html_button = f"""
-                    <a href="{form_link}" target="_blank" style="
-                        display: block;
-                        width: 100%;
-                        background-color: #1976D2;
-                        color: white;
-                        text-align: center;
-                        padding: 12px;
-                        border-radius: 10px;
-                        text-decoration: none;
-                        font-weight: bold;
-                        font-size: 18px;
-                        margin-top: 10px;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    ">
-                        🚀 送出訂單 (開啟 Google 表單)
-                    </a>
-                    """
-                    st.markdown(html_button, unsafe_allow_html=True)
-                    st.caption("☝️ 點擊上方按鈕即可完成點餐")
+                    # 組合所有品項成一個字串
+                    final_items_str = " | ".join(cart_items_str_list)
                     
-                elif not user_name: st.error("⚠️ 請先輸入名字！")
+                    # 清空購物車按鈕
+                    if st.button("🗑️ 清空重選"):
+                        st.session_state['cart'] = []
+                        st.rerun()
+
+                    # 產生 Google Form 連結
+                    if user_name:
+                        safe_name = urllib.parse.quote(user_name)
+                        safe_area = urllib.parse.quote(st.session_state['cart'][0]['area'])
+                        safe_shop = urllib.parse.quote(shop_name)
+                        safe_item = urllib.parse.quote(final_items_str)
+                        safe_price = str(cart_total)
+                        
+                        form_link = FORM_URL_TEMPLATE.replace("name", safe_name)\
+                                                     .replace("area", safe_area)\
+                                                     .replace("shop", safe_shop)\
+                                                     .replace("item", safe_item)\
+                                                     .replace("price", safe_price)
+                        
+                        html_button = f"""
+                        <a href="{form_link}" target="_blank" style="
+                            display: block;
+                            width: 100%;
+                            background-color: #1976D2;
+                            color: white;
+                            text-align: center;
+                            padding: 12px;
+                            border-radius: 10px;
+                            text-decoration: none;
+                            font-weight: bold;
+                            font-size: 18px;
+                            margin-top: 10px;
+                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                        ">
+                            🚀 確認送出訂單 (開啟 Google 表單)
+                        </a>
+                        """
+                        st.markdown(html_button, unsafe_allow_html=True)
+                        st.caption("☝️ 點擊送出後，購物車會自動清空嗎？不會喔！請手動關閉視窗。")
+                else:
+                    st.info("🛒 購物車是空的，請上方選購後按「加入購物車」")
 
 # === Tab 2 ===
 with tab2:
     st.subheader("目前訂單狀態")
     today_taiwan = datetime.datetime.now() + datetime.timedelta(hours=8)
     filter_date = st.date_input("📅 選擇要查看的日期", value=today_taiwan)
-    
     if st.button("🔄 重新整理訂單", key="ref2"): st.cache_data.clear()
-    
     orders_df = load_orders(ORDER_CSV_URL)
-    
     if not orders_df.empty:
         time_col = orders_df.columns[0]
         search_str_1 = filter_date.strftime("%Y/%m/%d")
         search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
-        
         mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
                orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
-        
         filtered_orders = orders_df[mask]
-        
         try:
             st.dataframe(filtered_orders[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
             total_price = filtered_orders['價格'].sum()
@@ -310,14 +348,12 @@ with tab3:
     st.subheader("店家訂單彙整")
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
-    
     time_col = orders_df.columns[0]
     today_search_1 = today_taiwan.strftime("%Y/%m/%d")
     today_search_2 = f"{today_taiwan.year}/{today_taiwan.month}/{today_taiwan.day}"
     mask = orders_df[time_col].astype(str).str.contains(today_search_1, na=False) | \
            orders_df[time_col].astype(str).str.contains(today_search_2, na=False)
     todays_orders = orders_df[mask]
-
     if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
         curr_orders = todays_orders[todays_orders["店家"] == shop_name]
         if not curr_orders.empty:
