@@ -345,55 +345,61 @@ with tab2:
 
 # === Tab 3 ===
 # === Tab 3: 給店家小抄 (智慧拆解版) ===
+# === Tab 3: 給店家小抄 (購物車統計修復版) ===
 with tab3:
     st.subheader("店家訂單彙整")
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
     
-    # 日期過濾 (沿用 Tab 2 的變數，如果 Tab 2 沒選日期，預設今天)
+    # 取得 Tab 2 選中的日期 (如果沒選，預設今天)
     try:
-        filter_date
+        current_date = filter_date
     except NameError:
-        filter_date = datetime.datetime.now() + datetime.timedelta(hours=8)
+        current_date = datetime.datetime.now() + datetime.timedelta(hours=8)
 
     time_col = orders_df.columns[0]
-    search_str_1 = filter_date.strftime("%Y/%m/%d")
-    search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
-    mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
-           orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
+    s1 = current_date.strftime("%Y/%m/%d")
+    s2 = f"{current_date.year}/{current_date.month}/{current_date.day}"
+    
+    # 篩選日期
+    mask = orders_df[time_col].astype(str).str.contains(s1, na=False) | \
+           orders_df[time_col].astype(str).str.contains(s2, na=False)
     todays_orders = orders_df[mask]
 
     if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
         curr_orders = todays_orders[todays_orders["店家"] == shop_name]
         
         if not curr_orders.empty:
-            # --- 🌟 這裡是大改版的核心邏輯 🌟 ---
-            # 我們要建立一個字典來統計各個品項的總數
-            item_counter = {}
+            # --- 🌟 統計核心邏輯 (修復版) 🌟 ---
+            item_counter = {} # 用來存 { "品項名稱": 總數量 }
             
-            for items_str in curr_orders["訂單內容"]:
-                # 1. 先用 " | " 切割不同品項
-                items = str(items_str).split(" | ")
+            for order_content in curr_orders["訂單內容"]:
+                # 1. 先用 " | " 把購物車裡的每個商品分開
+                # 例如： "A餐 x2 | B餐 x1" -> ["A餐 x2", "B餐 x1"]
+                items = str(order_content).split(" | ")
                 
                 for item in items:
-                    item_name = item.strip()
-                    qty = 1 # 預設數量
+                    item = item.strip()
+                    name = item
+                    qty = 1
                     
-                    # 2. 檢查後面有沒有 " x2", " x10" 這種標記
-                    # 邏輯：從字串最後面找 " x"
-                    if " x" in item_name:
-                        parts = item_name.rsplit(" x", 1) # 從右邊切一次
+                    # 2. 檢查屁股有沒有 " x數字"
+                    # 邏輯：從右邊找最後一個 " x"
+                    if " x" in item:
+                        # rsplit 只切最後一次，避免品名本身也有 x
+                        parts = item.rsplit(" x", 1) 
+                        # 確保切出來的後面那部分真的是數字
                         if len(parts) == 2 and parts[1].isdigit():
-                            item_name = parts[0]
-                            qty = int(parts[1])
+                            name = parts[0] # 品名
+                            qty = int(parts[1]) # 數量
                     
-                    # 3. 累加到字典中
-                    if item_name in item_counter:
-                        item_counter[item_name] += qty
+                    # 3. 累加到字典裡
+                    if name in item_counter:
+                        item_counter[name] += qty
                     else:
-                        item_counter[item_name] = qty
+                        item_counter[name] = qty
             
-            # --- 產生統計文字 ---
+            # --- 產生文字 ---
             txt = f"老闆你好，我要點餐 ({shop_name})：\n"
             txt += "------------------\n"
             
@@ -404,9 +410,9 @@ with tab3:
                 
             txt += "------------------\n"
             txt += f"總共 {total_cups} 份餐點。\n"
-            txt += f"訂單日期：{filter_date.strftime('%Y/%m/%d')}"
+            txt += f"日期：{current_date.strftime('%Y/%m/%d')}"
             
             st.text_area("複製文字", txt, height=300)
-        else: st.warning(f"今天 ({filter_date.strftime('%m/%d')}) 還沒有 {shop_name} 的訂單。")
+        else: st.warning(f"今天 ({current_date.strftime('%m/%d')}) 還沒有 {shop_name} 的訂單。")
     elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
     else: st.warning("尚無資料")
