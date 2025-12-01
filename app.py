@@ -5,10 +5,10 @@ import datetime
 
 # --- 1. 設定頁面 ---
 st.set_page_config(page_title="點餐魔術師", page_icon="🍱")
-st.title("🍱 點餐魔術師 (購物車版)")
+st.title("🍱 點餐魔術師 (完美體驗版)")
 
 # ==========================================
-# 👇 CSS 視覺優化區 (含數字框修復) 👇
+# 👇 CSS 視覺優化區 (提示詞修復版) 👇
 st.markdown(
     """
     <style>
@@ -41,18 +41,25 @@ st.markdown(
         background-color: #BBDEFB !important;
     }
     
-    /* 3. 輸入框 (名字) */
+    /* 3. 輸入框 (名字) - 樣式優化 */
     .stTextInput input {
         background-color: #E3F2FD !important;
-        color: #000000 !important;
+        color: #000000 !important; /* 輸入的字是黑色 */
         border: 2px solid #2196F3;
         border-radius: 10px;
         font-weight: bold;
     }
+    
+    /* --- 🌟 修正重點：提示詞樣式 --- */
     .stTextInput input::placeholder {
-        color: #000000 !important;
-        font-weight: 900 !important;
-        opacity: 1 !important;
+        color: #666666 !important; /* 改為深灰色，區分度高 */
+        font-weight: normal !important; /* 變細一點，像提示 */
+        opacity: 0.7 !important;
+    }
+    
+    /* 當點擊輸入框時，提示詞自動消失 */
+    .stTextInput input:focus::placeholder {
+        color: transparent !important;
     }
     
     /* 4. 多選框標籤 */
@@ -61,19 +68,18 @@ st.markdown(
         color: white !important;
     }
 
-    /* 5. 數字輸入框 (修復看不清楚的問題) */
+    /* 5. 數字輸入框 */
     div[data-baseweb="input"] {
-        background-color: #1976D2 !important; /* 改成深藍底 */
+        background-color: #1976D2 !important;
         border: 2px solid #0D47A1 !important;
         border-radius: 10px;
-        color: white !important; /* 改成白字 */
+        color: white !important;
     }
     input[type="number"] {
         color: white !important;
         font-weight: bold !important;
-        caret-color: white; /* 游標也是白色 */
+        caret-color: white;
     }
-    /* 讓 + - 按鈕也明顯一點 (如果有顯示的話) */
     button[tabindex="-1"] {
         color: white !important;
     }
@@ -178,7 +184,7 @@ with tab1:
         shop_name = st.selectbox("🏪 店家", shop_list, index=idx_shop)
 
         if shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
-            # --- 當換店家時，提醒清空購物車 (避免A店的單跑到B店) ---
+            # --- 換店提醒 ---
             if st.session_state['cart'] and st.session_state['cart'][0]['shop'] != shop_name:
                 st.warning(f"⚠️ 你之前選擇了 {st.session_state['cart'][0]['shop']} 的商品，換店將會清空購物車。")
                 if st.button("🗑️ 清空購物車並換店"):
@@ -242,27 +248,21 @@ with tab1:
                 subtotal = unit_price * quantity
                 
                 item_str = f"{base_item_name} {spec_str} {selected_addons_str} {note}".strip()
-                if quantity > 1:
-                    display_item_str = f"{item_str} x{quantity}"
-                else:
-                    display_item_str = item_str
+                if quantity > 1: display_item_str = f"{item_str} x{quantity}"
+                else: display_item_str = item_str
 
-                # --- 這裡改成「加入購物車」 ---
                 if st.button("🛒 加入購物車"):
-                    if not user_name:
-                        st.error("⚠️ 請先輸入名字！")
+                    if not user_name: st.error("⚠️ 請先輸入名字！")
                     else:
                         st.session_state['cart'].append({
                             "shop": shop_name,
                             "item": display_item_str,
                             "price": subtotal,
-                            "area": selected_area # 記錄區域
+                            "area": selected_area
                         })
                         st.toast(f"已加入：{display_item_str}")
 
-                # --- 步驟 3：顯示購物車與結帳 ---
                 st.markdown("### 步驟 3：確認與送出")
-                
                 if len(st.session_state['cart']) > 0:
                     st.write("📋 **目前清單：**")
                     cart_total = 0
@@ -274,16 +274,12 @@ with tab1:
                         cart_items_str_list.append(item['item'])
                     
                     st.markdown(f"#### 💰 總金額：${cart_total}")
-                    
-                    # 組合所有品項成一個字串
                     final_items_str = " | ".join(cart_items_str_list)
                     
-                    # 清空購物車按鈕
                     if st.button("🗑️ 清空重選"):
                         st.session_state['cart'] = []
                         st.rerun()
 
-                    # 產生 Google Form 連結
                     if user_name:
                         safe_name = urllib.parse.quote(user_name)
                         safe_area = urllib.parse.quote(st.session_state['cart'][0]['area'])
@@ -299,26 +295,19 @@ with tab1:
                         
                         html_button = f"""
                         <a href="{form_link}" target="_blank" style="
-                            display: block;
-                            width: 100%;
-                            background-color: #1976D2;
-                            color: white;
-                            text-align: center;
-                            padding: 12px;
-                            border-radius: 10px;
-                            text-decoration: none;
-                            font-weight: bold;
-                            font-size: 18px;
-                            margin-top: 10px;
-                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                            display: block; width: 100%;
+                            background-color: #1976D2; color: white;
+                            text-align: center; padding: 12px;
+                            border-radius: 10px; text-decoration: none;
+                            font-weight: bold; font-size: 18px;
+                            margin-top: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
                         ">
                             🚀 確認送出訂單 (開啟 Google 表單)
                         </a>
                         """
                         st.markdown(html_button, unsafe_allow_html=True)
-                        st.caption("☝️ 點擊送出後，購物車會自動清空嗎？不會喔！請手動關閉視窗。")
-                else:
-                    st.info("🛒 購物車是空的，請上方選購後按「加入購物車」")
+                        st.caption("☝️ 點擊上方按鈕即可完成點餐")
+                else: st.info("🛒 購物車是空的，請上方選購後按「加入購物車」")
 
 # === Tab 2 ===
 with tab2:
@@ -329,10 +318,10 @@ with tab2:
     orders_df = load_orders(ORDER_CSV_URL)
     if not orders_df.empty:
         time_col = orders_df.columns[0]
-        search_str_1 = filter_date.strftime("%Y/%m/%d")
-        search_str_2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
-        mask = orders_df[time_col].astype(str).str.contains(search_str_1, na=False) | \
-               orders_df[time_col].astype(str).str.contains(search_str_2, na=False)
+        s1 = filter_date.strftime("%Y/%m/%d")
+        s2 = f"{filter_date.year}/{filter_date.month}/{filter_date.day}"
+        mask = orders_df[time_col].astype(str).str.contains(s1, na=False) | \
+               orders_df[time_col].astype(str).str.contains(s2, na=False)
         filtered_orders = orders_df[mask]
         try:
             st.dataframe(filtered_orders[["時間戳記", "姓名", "店家", "訂單內容", "價格", "區域"]], use_container_width=True, hide_index=True)
@@ -344,74 +333,45 @@ with tab2:
     else: st.info("無訂單資料...")
 
 # === Tab 3 ===
-# === Tab 3: 給店家小抄 (智慧拆解版) ===
-# === Tab 3: 給店家小抄 (購物車統計修復版) ===
 with tab3:
     st.subheader("店家訂單彙整")
     if st.button("🔄 刷新資料", key="ref3"): st.cache_data.clear()
     orders_df = load_orders(ORDER_CSV_URL)
     
-    # 取得 Tab 2 選中的日期 (如果沒選，預設今天)
-    try:
-        current_date = filter_date
-    except NameError:
-        current_date = datetime.datetime.now() + datetime.timedelta(hours=8)
+    try: current_date = filter_date
+    except NameError: current_date = datetime.datetime.now() + datetime.timedelta(hours=8)
 
     time_col = orders_df.columns[0]
     s1 = current_date.strftime("%Y/%m/%d")
     s2 = f"{current_date.year}/{current_date.month}/{current_date.day}"
-    
-    # 篩選日期
     mask = orders_df[time_col].astype(str).str.contains(s1, na=False) | \
            orders_df[time_col].astype(str).str.contains(s2, na=False)
     todays_orders = orders_df[mask]
 
     if not todays_orders.empty and shop_name not in ["請選擇店家...", "請先選擇區域...", "請選擇分類..."]:
         curr_orders = todays_orders[todays_orders["店家"] == shop_name]
-        
         if not curr_orders.empty:
-            # --- 🌟 統計核心邏輯 (修復版) 🌟 ---
-            item_counter = {} # 用來存 { "品項名稱": 總數量 }
-            
+            item_counter = {}
             for order_content in curr_orders["訂單內容"]:
-                # 1. 先用 " | " 把購物車裡的每個商品分開
-                # 例如： "A餐 x2 | B餐 x1" -> ["A餐 x2", "B餐 x1"]
                 items = str(order_content).split(" | ")
-                
                 for item in items:
                     item = item.strip()
                     name = item
                     qty = 1
-                    
-                    # 2. 檢查屁股有沒有 " x數字"
-                    # 邏輯：從右邊找最後一個 " x"
                     if " x" in item:
-                        # rsplit 只切最後一次，避免品名本身也有 x
-                        parts = item.rsplit(" x", 1) 
-                        # 確保切出來的後面那部分真的是數字
+                        parts = item.rsplit(" x", 1)
                         if len(parts) == 2 and parts[1].isdigit():
-                            name = parts[0] # 品名
-                            qty = int(parts[1]) # 數量
-                    
-                    # 3. 累加到字典裡
-                    if name in item_counter:
-                        item_counter[name] += qty
-                    else:
-                        item_counter[name] = qty
+                            name = parts[0]
+                            qty = int(parts[1])
+                    if name in item_counter: item_counter[name] += qty
+                    else: item_counter[name] = qty
             
-            # --- 產生文字 ---
-            txt = f"老闆你好，我要點餐 ({shop_name})：\n"
-            txt += "------------------\n"
-            
+            txt = f"老闆你好，我要點餐 ({shop_name})：\n------------------\n"
             total_cups = 0
             for name, quantity in item_counter.items():
                 txt += f"● {name} x {quantity}\n"
                 total_cups += quantity
-                
-            txt += "------------------\n"
-            txt += f"總共 {total_cups} 份餐點。\n"
-            txt += f"日期：{current_date.strftime('%Y/%m/%d')}"
-            
+            txt += f"------------------\n總共 {total_cups} 份餐點。\n日期：{current_date.strftime('%Y/%m/%d')}"
             st.text_area("複製文字", txt, height=300)
         else: st.warning(f"今天 ({current_date.strftime('%m/%d')}) 還沒有 {shop_name} 的訂單。")
     elif shop_name == "請選擇店家...": st.info("👈 請先選擇店家")
